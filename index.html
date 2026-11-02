@@ -83,7 +83,7 @@
       if (cell.length || row.length) { row.push(cell); rows.push(row); }
       const headers = rows.shift() || [];
       return rows.map(r => Object.fromEntries(headers.map((h, i) => [h.trim(), (r[i] || '').trim()])))
-        .map(r => ({ name:r.Game, hours:Number(r['Hours Played']), appid:r['App ID'] }))
+        .map(r => ({ name:r.Game, hours:Number(r['Hours Played']), appid:r['App ID'], icon:r['Icon URL'] }))
         .filter(g => g.name && Number.isFinite(g.hours));
     }
 
@@ -99,8 +99,10 @@
       for (const game of games) {
         const card = document.createElement('article'); card.className = 'card';
         const art = document.createElement('div'); art.className = 'art'; art.textContent = game.name.slice(0,1).toUpperCase();
-        const img = document.createElement('img'); img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${encodeURIComponent(game.appid)}/header.jpg`; img.alt = ''; img.loading = 'lazy';
-        img.onerror = () => img.remove(); art.append(img);
+        const img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
+        const fallback = `https://cdn.akamai.steamstatic.com/steam/apps/${encodeURIComponent(game.appid)}/header.jpg`;
+        img.onerror = () => { if (img.src !== fallback) img.src = fallback; else img.remove(); };
+        img.src = game.icon || fallback; art.append(img);
         const info = document.createElement('div'); info.className = 'info';
         const link = document.createElement('a'); link.className = 'name'; link.textContent = game.name; link.href = `https://store.steampowered.com/app/${encodeURIComponent(game.appid)}/`; link.target = '_blank'; link.rel = 'noopener noreferrer';
         const hours = document.createElement('div'); hours.className = 'hours'; hours.innerHTML = `<b>${game.hours.toLocaleString('zh-CN',{maximumFractionDigits:1})}</b> 小时`;
