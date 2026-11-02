@@ -145,11 +145,11 @@
             return lines;
           }
           const coverImages = await Promise.all(games.map(game => new Promise(resolve => {
-            if (!game.cover) { resolve(null); return; }
+            const coverPath = game.cover || ('covers/' + encodeURIComponent(game.appid) + '.jpg');
             const image = new Image();
             image.onload = () => resolve(image);
             image.onerror = () => resolve(null);
-            image.src = new URL(game.cover, document.baseURI).href;
+            image.src = new URL(coverPath, document.baseURI).href;
           })));
           games.forEach((game,index) => {
             const col = index % columns, row = Math.floor(index / columns);
@@ -203,7 +203,7 @@
         const art = document.createElement('div'); art.className = 'art'; art.textContent = game.name.slice(0,1).toUpperCase();
         const img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
         const images = [
-          game.cover,
+          game.cover || ('covers/' + encodeURIComponent(game.appid) + '.jpg'),
           `https://cdn.akamai.steamstatic.com/steam/apps/${encodeURIComponent(game.appid)}/library_600x900.jpg`,
           game.icon,
           `https://cdn.akamai.steamstatic.com/steam/apps/${encodeURIComponent(game.appid)}/header.jpg`
@@ -226,7 +226,7 @@
       }
     }
 
-    fetch('./games.csv').then(r => { if (!r.ok) throw new Error('CSV 加载失败'); return r.text(); }).then(text => {
+    fetch('./games.csv?updated=' + Date.now(), { cache:'no-store' }).then(r => { if (!r.ok) throw new Error('CSV 加载失败'); return r.text(); }).then(text => {
       allGames = parseCSV(text);
       const total = allGames.reduce((sum,g) => sum + g.hours, 0);
       document.querySelector('#total-games').textContent = allGames.length;
