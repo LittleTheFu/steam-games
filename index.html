@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131a">
+  <title>我的 Steam 游戏</title>
+  <style>
+    :root { color-scheme: dark; --bg:#10131a; --panel:#191e28; --muted:#9ba6b8; --text:#f2f5fa; --accent:#8ce0c2; --line:#2a3240; }
+    * { box-sizing:border-box }
+    body { margin:0; background:radial-gradient(ellipse at 80% -15%,#263d48 0,transparent 40%),var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(1080px,calc(100% - 36px)); margin:0 auto; padding:64px 0 80px; }
+    .eyebrow { color:var(--accent); text-transform:uppercase; letter-spacing:.16em; font-size:12px; font-weight:700 }
+    h1 { margin:10px 0 8px; font-size:clamp(34px,7vw,58px); line-height:1.05; letter-spacing:-.04em }
+    .intro { margin:0; color:var(--muted) }
+    .stats { display:flex; gap:12px; flex-wrap:wrap; margin:28px 0 30px }
+    .stat { background:rgba(25,30,40,.86); border:1px solid var(--line); border-radius:14px; padding:14px 18px; min-width:150px }
+    .stat strong { display:block; font-size:22px; font-variant-numeric:tabular-nums }
+    .stat span { color:var(--muted); font-size:13px }
+    .toolbar { display:flex; gap:12px; margin-bottom:18px }
+    input,select { color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:12px 14px; font:inherit; outline:none }
+    input:focus,select:focus { border-color:var(--accent) }
+    input { flex:1; min-width:120px }
+    .count { color:var(--muted); font-size:13px; margin:0 0 12px }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); gap:12px }
+    .card { display:flex; align-items:center; gap:14px; min-width:0; padding:12px; background:linear-gradient(135deg,rgba(28,34,45,.96),rgba(21,25,34,.96)); border:1px solid var(--line); border-radius:15px; transition:transform .16s,border-color .16s }
+    .card:hover { transform:translateY(-2px); border-color:#58786f }
+    .art { width:76px; height:76px; flex:0 0 76px; border-radius:11px; overflow:hidden; background:#283442; display:grid; place-items:center; color:var(--accent); font-size:25px; font-weight:700 }
+    .art img { width:100%; height:100%; object-fit:cover }
+    .info { min-width:0; flex:1 }
+    .name { color:var(--text); font-weight:650; text-decoration:none; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+    .name:hover { color:var(--accent) }
+    .hours { margin-top:5px; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums }
+    .hours b { color:var(--accent); font-size:17px }
+    .message { grid-column:1/-1; color:var(--muted); background:var(--panel); border:1px solid var(--line); padding:20px; border-radius:14px }
+    footer { margin-top:30px; color:var(--muted); font-size:12px }
+    @media(max-width:540px) { main{padding-top:40px}.toolbar{flex-direction:column}.stat{flex:1;min-width:120px}.grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Steam library · personal collection</div>
+    <h1>我的 Steam 游戏</h1>
+    <p class="intro">一些玩过的游戏，以及我花在它们上的时间。</p>
+    <section class="stats" aria-label="游戏统计">
+      <div class="stat"><strong id="total-games">—</strong><span>款游戏</span></div>
+      <div class="stat"><strong id="total-hours">—</strong><span>总游玩小时</span></div>
+      <div class="stat"><strong id="top-game">—</strong><span>游玩最多</span></div>
+    </section>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="搜索游戏…" aria-label="搜索游戏">
+      <select id="sort" aria-label="排序方式">
+        <option value="hours-desc">游玩时间：从多到少</option>
+        <option value="hours-asc">游玩时间：从少到多</option>
+        <option value="name-asc">名称：A 到 Z</option>
+      </select>
+    </div>
+    <p class="count" id="count"></p>
+    <section class="grid" id="games" aria-live="polite"></section>
+    <footer>游戏图片来自 Steam 商店；游玩时长来自这份游戏清单。</footer>
+  </main>
+  <script>
+    const grid = document.querySelector('#games');
+    const search = document.querySelector('#search');
+    const sort = document.querySelector('#sort');
+    const count = document.querySelector('#count');
+    let allGames = [];
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [], cell = '', quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (quoted && ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (ch === '"') quoted = !quoted;
+        else if (ch === ',' && !quoted) { row.push(cell); cell = ''; }
+        else if ((ch === '\n' || ch === '\r') && !quoted) {
+          if (ch === '\r' && text[i + 1] === '\n') i++;
+          row.push(cell); if (row.some(v => v.trim())) rows.push(row);
+          row = []; cell = '';
+        } else cell += ch;
+      }
+      if (cell.length || row.length) { row.push(cell); rows.push(row); }
+      const headers = rows.shift() || [];
+      return rows.map(r => Object.fromEntries(headers.map((h, i) => [h.trim(), (r[i] || '').trim()])))
+        .map(r => ({ name:r.Game, hours:Number(r['Hours Played']), appid:r['App ID'] }))
+        .filter(g => g.name && Number.isFinite(g.hours));
+    }
+
+    function render() {
+      const query = search.value.trim().toLocaleLowerCase();
+      const games = allGames.filter(g => g.name.toLocaleLowerCase().includes(query));
+      if (sort.value === 'hours-asc') games.sort((a,b) => a.hours-b.hours);
+      else if (sort.value === 'name-asc') games.sort((a,b) => a.name.localeCompare(b.name));
+      else games.sort((a,b) => b.hours-a.hours);
+      count.textContent = `显示 ${games.length} / ${allGames.length} 款游戏`;
+      grid.replaceChildren();
+      if (!games.length) { grid.innerHTML = '<div class="message">没有找到匹配的游戏。</div>'; return; }
+      for (const game of games) {
+        const card = document.createElement('article'); card.className = 'card';
+        const art = document.createElement('div'); art.className = 'art'; art.textContent = game.name.slice(0,1).toUpperCase();
+        const img = document.createElement('img'); img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${encodeURIComponent(game.appid)}/header.jpg`; img.alt = ''; img.loading = 'lazy';
+        img.onerror = () => img.remove(); art.append(img);
+        const info = document.createElement('div'); info.className = 'info';
+        const link = document.createElement('a'); link.className = 'name'; link.textContent = game.name; link.href = `https://store.steampowered.com/app/${encodeURIComponent(game.appid)}/`; link.target = '_blank'; link.rel = 'noopener noreferrer';
+        const hours = document.createElement('div'); hours.className = 'hours'; hours.innerHTML = `<b>${game.hours.toLocaleString('zh-CN',{maximumFractionDigits:1})}</b> 小时`;
+        info.append(link,hours); card.append(art,info); grid.append(card);
+      }
+    }
+
+    fetch('./games.csv').then(r => { if (!r.ok) throw new Error('CSV 加载失败'); return r.text(); }).then(text => {
+      allGames = parseCSV(text);
+      const total = allGames.reduce((sum,g) => sum + g.hours, 0);
+      document.querySelector('#total-games').textContent = allGames.length;
+      document.querySelector('#total-hours').textContent = Math.round(total).toLocaleString('zh-CN');
+      document.querySelector('#top-game').textContent = [...allGames].sort((a,b) => b.hours-a.hours)[0]?.name || '—';
+      render();
+    }).catch(() => { grid.innerHTML = '<div class="message">暂时无法读取 games.csv。请确认它与 index.html 在同一目录。</div>'; });
+    search.addEventListener('input', render);
+    sort.addEventListener('change', render);
+  </script>
+</body>
+</html>
+
