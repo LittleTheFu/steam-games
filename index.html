@@ -23,8 +23,16 @@
     input { flex:1; min-width:120px }
     .count { color:var(--muted); font-size:13px; margin:0 0 12px }
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:12px }
-    .card { display:flex; align-items:flex-start; gap:16px; min-width:0; padding:12px; background:linear-gradient(135deg,rgba(28,34,45,.96),rgba(21,25,34,.96)); border:1px solid var(--line); border-radius:15px; transition:transform .16s,border-color .16s }
-    .card:hover { transform:translateY(-2px); border-color:#58786f }
+    .card { position:relative; display:flex; align-items:flex-start; gap:16px; min-width:0; padding:12px; background:linear-gradient(135deg,rgba(28,34,45,.96),rgba(21,25,34,.96)); border:1px solid var(--line); border-radius:15px; transition:transform .16s,border-color .16s }
+    .card:hover, .card:focus-within { transform:translateY(-2px); border-color:#58786f; z-index:5 }
+    .details-popup { display:none; position:absolute; z-index:10; top:calc(100% + 8px); left:0; width:min(390px,calc(100vw - 40px)); overflow:hidden; background:#1b222e; border:1px solid #526477; border-radius:16px; box-shadow:0 18px 50px rgba(0,0,0,.58); }
+    .card:hover .details-popup, .card:focus-within .details-popup { display:block }
+    .details-popup img { display:block; width:100%; aspect-ratio:460/215; object-fit:cover; background:#283442 }
+    .details-body { padding:16px }
+    .details-title { margin:0 0 10px; font-size:19px; line-height:1.35; overflow-wrap:anywhere }
+    .details-meta { color:var(--muted); font-size:14px; margin:5px 0 }
+    .details-meta strong { color:var(--accent) }
+    .details-link { display:inline-block; margin-top:12px; color:#10131a; background:var(--accent); padding:8px 12px; border-radius:9px; text-decoration:none; font-weight:700 }
     .art { width:120px; height:120px; flex:0 0 120px; border-radius:11px; overflow:hidden; background:#283442; display:grid; place-items:center; color:var(--accent); font-size:25px; font-weight:700 }
     .art img { width:100%; height:100%; object-fit:cover }
     .info { min-width:0; flex:1 }
@@ -111,7 +119,15 @@
         const info = document.createElement('div'); info.className = 'info';
         const link = document.createElement('a'); link.className = 'name'; link.textContent = game.name; link.href = `https://store.steampowered.com/app/${encodeURIComponent(game.appid)}/`; link.target = '_blank'; link.rel = 'noopener noreferrer';
         const hours = document.createElement('div'); hours.className = 'hours'; hours.innerHTML = `<b>${game.hours.toLocaleString('zh-CN',{maximumFractionDigits:1})}</b> 小时`;
-        info.append(link,hours); card.append(art,info); grid.append(card);
+        info.append(link,hours); card.append(art,info);
+        const popup = document.createElement('div'); popup.className = 'details-popup';
+        const cover = document.createElement('img'); cover.src = 'https://cdn.akamai.steamstatic.com/steam/apps/' + encodeURIComponent(game.appid) + '/header.jpg'; cover.alt = ''; cover.loading = 'lazy';
+        const details = document.createElement('div'); details.className = 'details-body';
+        const title = document.createElement('h2'); title.className = 'details-title'; title.textContent = game.name;
+        const played = document.createElement('p'); played.className = 'details-meta'; played.textContent = '游玩时间：' + game.hours.toLocaleString('zh-CN',{maximumFractionDigits:1}) + ' 小时';
+        const appid = document.createElement('p'); appid.className = 'details-meta'; appid.textContent = 'Steam App ID：' + game.appid;
+        const storeLink = document.createElement('a'); storeLink.className = 'details-link'; storeLink.textContent = '查看 Steam 商店页面'; storeLink.href = link.href; storeLink.target = '_blank'; storeLink.rel = 'noopener noreferrer';
+        details.append(title,played,appid,storeLink); popup.append(cover,details); card.append(popup); grid.append(card);
       }
     }
 
