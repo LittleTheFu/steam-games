@@ -97,7 +97,7 @@
       if (cell.length || row.length) { row.push(cell); rows.push(row); }
       const headers = rows.shift() || [];
       return rows.map(r => Object.fromEntries(headers.map((h, i) => [h.trim(), (r[i] || '').trim()])))
-        .map(r => ({ name:r.Game, hours:Number(r['Hours Played']), appid:r['App ID'], icon:r['Icon URL'] }))
+        .map(r => ({ name:r.Game, hours:Number(r['Hours Played']), appid:r['App ID'], icon:r['Icon URL'], cover:r.Cover }))
         .filter(g => g.name && Number.isFinite(g.hours));
     }
 
@@ -106,7 +106,7 @@
       if (!allGames.length) return;
       exportButton.disabled = true;
       exportButton.textContent = '正在生成…';
-      requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
         try {
           const games = [...allGames];
           if (sort.value === 'hours-asc') games.sort((a,b) => a.hours-b.hours);
@@ -144,16 +144,28 @@
             if (line) lines.push(line);
             return lines;
           }
+          const coverImages = await Promise.all(games.map(game => new Promise(resolve => {
+            if (!game.cover) { resolve(null); return; }
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => resolve(null);
+            image.src = new URL(game.cover, document.baseURI).href;
+          })));
           games.forEach((game,index) => {
             const col = index % columns, row = Math.floor(index / columns);
             const x = margin + col * (cardWidth + gap);
             const y = headerHeight + margin + row * (cardHeight + rowGap);
             ctx.fillStyle = '#1b222e'; ctx.beginPath(); ctx.roundRect(x,y,cardWidth,cardHeight,16); ctx.fill();
             ctx.fillStyle = '#283442'; ctx.beginPath(); ctx.roundRect(x+14,y+14,84,84,13); ctx.fill();
-            ctx.fillStyle = '#8ce0c2'; ctx.font = '700 30px system-ui,sans-serif';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(game.name.slice(0,1).toLocaleUpperCase(),x+56,y+56);
-            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            if (coverImages[index]) {
+              ctx.save(); ctx.beginPath(); ctx.roundRect(x+14,y+14,84,84,13); ctx.clip();
+              ctx.drawImage(coverImages[index],x+14,y+14,84,84); ctx.restore();
+            } else {
+              ctx.fillStyle = '#8ce0c2'; ctx.font = '700 30px system-ui,sans-serif';
+              ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+              ctx.fillText(game.name.slice(0,1).toLocaleUpperCase(),x+56,y+56);
+              ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            }
             const lines = wrap(game.name,cardWidth-140,'600 19px system-ui,sans-serif');
             ctx.fillStyle = '#f2f5fa'; ctx.font = '600 19px system-ui,sans-serif';
             lines.slice(0,3).forEach((line,lineIndex) => ctx.fillText(line,x+116,y+37+lineIndex*24));
@@ -191,6 +203,7 @@
         const art = document.createElement('div'); art.className = 'art'; art.textContent = game.name.slice(0,1).toUpperCase();
         const img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
         const images = [
+          game.cover,
           `https://cdn.akamai.steamstatic.com/steam/apps/${encodeURIComponent(game.appid)}/library_600x900.jpg`,
           game.icon,
           `https://cdn.akamai.steamstatic.com/steam/apps/${encodeURIComponent(game.appid)}/header.jpg`
