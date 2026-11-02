@@ -20,6 +20,10 @@
     .toolbar { display:flex; gap:12px; margin-bottom:18px }
     input,select { color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:12px 14px; font:inherit; outline:none }
     input:focus,select:focus { border-color:var(--accent) }
+    .export-row { display:flex; justify-content:flex-end; margin:-4px 0 18px }
+    .export-button { border:0; border-radius:11px; padding:11px 16px; background:var(--accent); color:#10131a; font:700 14px system-ui,sans-serif; cursor:pointer }
+    .export-button:hover { filter:brightness(1.08) }
+    .export-button:disabled { opacity:.55; cursor:wait }
     input { flex:1; min-width:120px }
     .count { color:var(--muted); font-size:13px; margin:0 0 12px }
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:12px }
@@ -63,6 +67,7 @@
         <option value="name-asc">名称：A 到 Z</option>
       </select>
     </div>
+    <div class="export-row"><button class="export-button" id="export" type="button" disabled>导出为图片</button></div>
     <p class="count" id="count"></p>
     <section class="grid" id="games" aria-live="polite"></section>
     <footer>游戏图片来自 Steam 商店；游玩时长来自这份游戏清单。</footer>
@@ -72,6 +77,7 @@
     const search = document.querySelector('#search');
     const sort = document.querySelector('#sort');
     const count = document.querySelector('#count');
+    const exportButton = document.querySelector('#export');
     let allGames = [];
 
     function parseCSV(text) {
@@ -93,6 +99,82 @@
       return rows.map(r => Object.fromEntries(headers.map((h, i) => [h.trim(), (r[i] || '').trim()])))
         .map(r => ({ name:r.Game, hours:Number(r['Hours Played']), appid:r['App ID'], icon:r['Icon URL'] }))
         .filter(g => g.name && Number.isFinite(g.hours));
+    }
+
+
+    function exportImage() {
+      if (!allGames.length) return;
+      exportButton.disabled = true;
+      exportButton.textContent = '正在生成…';
+      requestAnimationFrame(() => {
+        try {
+          const games = [...allGames];
+          if (sort.value === 'hours-asc') games.sort((a,b) => a.hours-b.hours);
+          else if (sort.value === 'name-asc') games.sort((a,b) => a.name.localeCompare(b.name));
+          else games.sort((a,b) => b.hours-a.hours);
+
+          const width = 1600, margin = 56, gap = 22, columns = 2;
+          const cardWidth = (width - margin * 2 - gap) / columns;
+          const cardHeight = 112, rowGap = 14, headerHeight = 230;
+          const rows = Math.ceil(games.length / columns);
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = headerHeight + margin + rows * (cardHeight + rowGap) + margin;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#10131a'; ctx.fillRect(0,0,width,canvas.height);
+          const glow = ctx.createRadialGradient(width*.82,0,20,width*.82,0,650);
+          glow.addColorStop(0,'#263d48'); glow.addColorStop(1,'#10131a');
+          ctx.fillStyle = glow; ctx.fillRect(0,0,width,canvas.height);
+          ctx.fillStyle = '#8ce0c2'; ctx.font = '700 18px system-ui,sans-serif';
+          ctx.fillText('STEAM LIBRARY', margin, 58);
+          ctx.fillStyle = '#f2f5fa'; ctx.font = '700 54px system-ui,sans-serif';
+          ctx.fillText('我的 Steam 游戏', margin, 124);
+          const totalHours = games.reduce((sum,g) => sum + g.hours, 0);
+          ctx.fillStyle = '#aab5c5'; ctx.font = '20px system-ui,sans-serif';
+          ctx.fillText(games.length + ' 款游戏     ·     ' + Math.round(totalHours).toLocaleString('zh-CN') + ' 小时', margin, 170);
+          ctx.font = '14px system-ui,sans-serif'; ctx.fillText(new Date().toLocaleDateString('zh-CN'), margin, 202);
+
+          function wrap(text, maxWidth, font) {
+            ctx.font = font;
+            const lines = []; let line = '';
+            for (const char of text) {
+              if (line && ctx.measureText(line + char).width > maxWidth) { lines.push(line); line = char; }
+              else line += char;
+            }
+            if (line) lines.push(line);
+            return lines;
+          }
+          games.forEach((game,index) => {
+            const col = index % columns, row = Math.floor(index / columns);
+            const x = margin + col * (cardWidth + gap);
+            const y = headerHeight + margin + row * (cardHeight + rowGap);
+            ctx.fillStyle = '#1b222e'; ctx.beginPath(); ctx.roundRect(x,y,cardWidth,cardHeight,16); ctx.fill();
+            ctx.fillStyle = '#283442'; ctx.beginPath(); ctx.roundRect(x+14,y+14,84,84,13); ctx.fill();
+            ctx.fillStyle = '#8ce0c2'; ctx.font = '700 30px system-ui,sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(game.name.slice(0,1).toLocaleUpperCase(),x+56,y+56);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            const lines = wrap(game.name,cardWidth-140,'600 19px system-ui,sans-serif');
+            ctx.fillStyle = '#f2f5fa'; ctx.font = '600 19px system-ui,sans-serif';
+            lines.slice(0,3).forEach((line,lineIndex) => ctx.fillText(line,x+116,y+37+lineIndex*24));
+            ctx.fillStyle = '#8ce0c2'; ctx.font = '16px system-ui,sans-serif';
+            ctx.fillText(game.hours.toLocaleString('zh-CN',{maximumFractionDigits:1}) + ' 小时',x+116,y+96);
+          });
+
+          canvas.toBlob(blob => {
+            if (!blob) { exportButton.textContent = '导出失败，请重试'; exportButton.disabled = false; return; }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'steam-games-' + new Date().toISOString().slice(0,10) + '.png';
+            a.click(); setTimeout(() => URL.revokeObjectURL(url),1000);
+            exportButton.textContent = '导出为图片';
+            exportButton.disabled = false;
+          },'image/png');
+        } catch (error) {
+          exportButton.textContent = '导出失败，请重试';
+          exportButton.disabled = false;
+        }
+      });
     }
 
     function render() {
@@ -138,7 +220,9 @@
       document.querySelector('#total-hours').textContent = Math.round(total).toLocaleString('zh-CN');
       document.querySelector('#top-game').textContent = [...allGames].sort((a,b) => b.hours-a.hours)[0]?.name || '—';
       render();
+      exportButton.disabled = false;
     }).catch(() => { grid.innerHTML = '<div class="message">暂时无法读取 games.csv。请确认它与 index.html 在同一目录。</div>'; });
+    exportButton.addEventListener('click', exportImage);
     search.addEventListener('input', render);
     sort.addEventListener('change', render);
   </script>
