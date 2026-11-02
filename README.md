@@ -1,5 +1,7 @@
 # Steam 游戏游玩时间页面
 
+在线页面：[https://littlethefu.github.io/steam-games/](https://littlethefu.github.io/steam-games/)
+
 ## 发布到 GitHub Pages
 
 1. 在 GitHub 新建一个仓库，例如 `steam-games`。
@@ -14,8 +16,6 @@ GitHub Free 需要公开仓库才能使用 Pages；发布出来的页面也会�
 用新的 Steam 游戏 CSV 覆盖 `games.csv` 并提交到仓库，网页会读取最新数据。CSV 表头需要是 `Game,Hours Played,App ID`。
 
 游戏图片通过 Steam 商店静态图片地址按 App ID 加载。若某张图片不可用，页面会自动显示游戏名称首字母作为占位图。
-
-
 
 ## Automatic Steam sync
 
