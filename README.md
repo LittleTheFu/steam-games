@@ -11,12 +11,11 @@
 
 GitHub Free 需要公开仓库才能使用 Pages；发布出来的页面也会公开。上传前请确认愿意公开游戏清单和游玩时间。
 
-## 更新数据
+## 自动同步
 
-用新的 Steam 游戏 CSV 覆盖 `games.csv` 并提交到仓库，网页会读取最新数据。CSV 表头需要是 `Game,Hours Played,App ID`。
+GitHub Actions 每天北京时间 02:00 从 Steam 同步一次，也可以在 Actions 页面手动运行。到 **Settings → Secrets and variables → Actions** 添加以下仓库 Secret：
 
-游戏图片通过 Steam 商店静态图片地址按 App ID 加载。若某张图片不可用，页面会自动显示游戏名称首字母作为占位图。
+- `STEAM_API_KEY`：Steam Web API Key
+- `STEAM_ID`：Steam 账号 ID
 
-## Automatic Steam sync
-
-The GitHub Actions workflow syncs the library daily at 18:00 UTC (02:00 China Standard Time) and can also be run manually from the Actions tab. Before it can run, add a repository Actions secret named `STEAM_API_KEY` containing your Steam Web API key. The workflow fetches the public game details for the configured SteamID and updates `games.csv`; the page then shows Steam's game icons when available.
+同步会更新 `games.csv`。游戏图标优先使用 Steam 返回的图标，缺失时回退到商店图片。
