@@ -7,7 +7,7 @@ import urllib.request
 from pathlib import Path
 
 
-STEAM_ID = "76561198288901724"
+STEAM_ID = os.environ.get("STEAM_ID")
 API_KEY = os.environ.get("STEAM_API_KEY")
 OUTPUT = Path(__file__).with_name("games.csv")
 
@@ -15,6 +15,8 @@ OUTPUT = Path(__file__).with_name("games.csv")
 def main():
     if not API_KEY:
         raise SystemExit("Missing STEAM_API_KEY. Add it in repository Actions secrets.")
+    if not STEAM_ID:
+        raise SystemExit("Missing STEAM_ID. Add it in repository Actions secrets.")
 
     query = urllib.parse.urlencode({
         "key": API_KEY,
@@ -59,4 +61,3 @@ if __name__ == "__main__":
     except Exception as error:
         print(f"Steam sync failed: {error}", file=sys.stderr)
         raise
-
