@@ -15,3 +15,8 @@ GitHub Free 需要公开仓库才能使用 Pages；发布出来的页面也会�
 
 游戏图片通过 Steam 商店静态图片地址按 App ID 加载。若某张图片不可用，页面会自动显示游戏名称首字母作为占位图。
 
+
+
+## Automatic Steam sync
+
+The GitHub Actions workflow syncs the library daily at 18:00 UTC (02:00 China Standard Time) and can also be run manually from the Actions tab. Before it can run, add a repository Actions secret named `STEAM_API_KEY` containing your Steam Web API key. The workflow fetches the public game details for the configured SteamID and updates `games.csv`; the page then shows Steam's game icons when available.
